@@ -1,105 +1,68 @@
--- [[ BLADE BALL: DYNAMIC VISUALIZER + AUTO-PARRY ]] --
+-- [[ SIMPLE SMOOTH FLY - PRESS F TO TOGGLE ]] --
 local Players = game:GetService("Players")
 local LP = Players.LocalPlayer
-local RS = game:GetService("RunService")
-local VIM = game:GetService("VirtualInputManager")
+local Mouse = LP:GetMouse()
+local UserInputService = game:GetService("UserInputService")
 
--- 1. UI SETUP
-local ScreenGui = LP.PlayerGui:FindFirstChild("BladeVisualUI")
-if ScreenGui then ScreenGui:Destroy() end
+local flying = false
+local speed = 50 -- Baguhin mo 'to kung gusto mo mas mabilis
 
-ScreenGui = Instance.new("ScreenGui", LP.PlayerGui)
-ScreenGui.Name = "BladeVisualUI"
-ScreenGui.ResetOnSpawn = false 
+local bv, bg
+local char, root
 
-local MainBtn = Instance.new("TextButton", ScreenGui)
-MainBtn.Size = UDim2.new(0, 160, 0, 40)
-MainBtn.Position = UDim2.new(0.5, -80, 0.02, 0)
-MainBtn.Text = "VISUAL PARRY: OFF"
-MainBtn.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-MainBtn.TextColor3 = Color3.new(1, 1, 1)
-MainBtn.Font = Enum.Font.SourceSansBold
-
--- 2. CREATE THE VISUAL CIRCLE (Tulad ng nasa picture mo)
-local VisualPart = Instance.new("Part")
-VisualPart.Shape = Enum.PartType.Cylinder
-VisualPart.Material = Enum.Material.Neon
-VisualPart.Color = Color3.fromRGB(255, 0, 0) -- Red Circle
-VisualPart.Transparency = 0.7
-VisualPart.CanCollide = false
-VisualPart.Anchored = true
-VisualPart.Parent = workspace
-VisualPart.Size = Vector3.new(0.5, 0, 0)
-VisualPart.Orientation = Vector3.new(0, 0, 90)
-
-local active = false
-local lastParry = 0
-
-MainBtn.MouseButton1Click:Connect(function()
-    active = not active
-    MainBtn.Text = active and "VISUAL PARRY: ON" or "VISUAL PARRY: OFF"
-    MainBtn.BackgroundColor3 = active and Color3.fromRGB(255, 0, 80) or Color3.fromRGB(20, 20, 20)
-    VisualPart.Transparency = active and 0.7 or 1
-end)
-
--- 3. PARRY LOGIC
-local function doParry()
-    VIM:SendMouseButtonEvent(0, 0, 0, true, game, 0)
-    VIM:SendKeyEvent(true, Enum.KeyCode.F, false, game)
-    task.wait(0.01)
-    VIM:SendMouseButtonEvent(0, 0, 0, false, game, 0)
-    VIM:SendKeyEvent(false, Enum.KeyCode.F, false, game)
-    lastParry = tick()
+local function startFly()
+    char = LP.Character
+    root = char:FindFirstChild("HumanoidRootPart")
+    
+    if not root then return end
+    
+    -- Anti-Gravity / Velocity Setup
+    bv = Instance.new("BodyVelocity")
+    bv.MaxForce = Vector3.new(1e8, 1e8, 1e8)
+    bv.Velocity = Vector3.new(0, 0, 0)
+    bv.Parent = root
+    
+    bg = Instance.new("BodyGyro")
+    bg.MaxTorque = Vector3.new(1e8, 1e8, 1e8)
+    bg.CFrame = root.CFrame
+    bg.Parent = root
+    
+    LP.Character.Humanoid.PlatformStand = true
+    
+    repeat
+        task.wait()
+        -- Control Logic
+        local moveDir = Vector3.new(0,0,0)
+        
+        if UserInputService:IsKeyDown(Enum.KeyCode.W) then
+            moveDir = moveDir + (workspace.CurrentCamera.CFrame.LookVector)
+        end
+        if UserInputService:IsKeyDown(Enum.KeyCode.S) then
+            moveDir = moveDir - (workspace.CurrentCamera.CFrame.LookVector)
+        end
+        if UserInputService:IsKeyDown(Enum.KeyCode.A) then
+            moveDir = moveDir - (workspace.CurrentCamera.CFrame.RightVector)
+        end
+        if UserInputService:IsKeyDown(Enum.KeyCode.D) then
+            moveDir = moveDir + (workspace.CurrentCamera.CFrame.RightVector)
+        end
+        
+        bv.Velocity = moveDir * speed
+        bg.CFrame = workspace.CurrentCamera.CFrame
+    until not flying
+    
+    -- Clean up pag off na
+    bv:Destroy()
+    bg:Destroy()
+    LP.Character.Humanoid.PlatformStand = false
 end
 
--- 4. MAIN LOOP (VISUALS + DETECTION)
-RS.Heartbeat:Connect(function()
-    if not active or not LP.Character or not LP.Character:FindFirstChild("HumanoidRootPart") then 
-        VisualPart.Transparency = 1
-        return 
-    end
-    
-    local hrp = LP.Character.HumanoidRootPart
-    VisualPart.CFrame = hrp.CFrame * CFrame.new(0, -3, 0) -- Nasa paanan mo
-    
-    local balls = workspace:FindFirstChild("Balls") or workspace:FindFirstChild("Ball")
-    local currentBall = nil
-    
-    -- Hanapin ang active ball
-    if balls then
-        currentBall = balls:IsA("BasePart") and balls or balls:FindFirstChildOfClass("BasePart")
-    end
-
-    if currentBall then
-        local relPos = (hrp.Position - currentBall.Position)
-        local dist = relPos.Magnitude
-        local vel = currentBall.Velocity.Magnitude
-        
-        -- DYNAMIC RANGE CALCULATION
-        -- Habang mas mabilis (vel), mas malaki ang radius
-        local radius = 12 + (vel * 0.22)
-        if vel > 120 then radius = radius + 5 end -- Skill compensation
-        
-        -- Update Visual Circle Size
-        VisualPart.Size = Vector3.new(0.2, radius * 2, radius * 2)
-        VisualPart.Transparency = 0.7
-
-        -- TARGET CHECK (Visual Red)
-        local isTarget = false
-        local hl = currentBall:FindFirstChildOfClass("Highlight")
-        if hl and hl.OutlineColor.R > 0.8 then isTarget = true end
-
-        if isTarget and currentBall.Velocity:Dot(relPos) > 0 then
-            -- Cooldown para smooth sa clash
-            local cd = (dist < 15) and 0.05 or 0.4
-            
-            if dist <= radius and (tick() - lastParry) >= cd then
-                doParry()
-                VisualPart.Color = Color3.fromRGB(255, 255, 255) -- Flash White pag pumalo
-                task.delay(0.1, function() VisualPart.Color = Color3.fromRGB(255, 0, 0) end)
-            end
+UserInputService.InputBegan:Connect(function(input, gpe)
+    if gpe then return end
+    if input.KeyCode == Enum.KeyCode.F then
+        flying = not flying
+        if flying then
+            task.spawn(startFly)
         end
-    else
-        VisualPart.Size = Vector3.new(0.2, 0, 0) -- Small pag walang bola
     end
 end)
