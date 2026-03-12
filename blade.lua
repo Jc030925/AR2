@@ -1,40 +1,39 @@
--- [[ BLADE BALL: SMOOTH SINGLE-PARRY ]] --
+-- [[ BLADE BALL: ADAPTIVE SPEED PARRY ]] --
 local Players = game:GetService("Players")
 local LP = Players.LocalPlayer
 local RS = game:GetService("RunService")
 local VIM = game:GetService("VirtualInputManager")
 
 -- 1. PERMANENT UI
-local ScreenGui = LP.PlayerGui:FindFirstChild("BladeSmoothUI")
+local ScreenGui = LP.PlayerGui:FindFirstChild("BladeAdaptiveUI")
 if ScreenGui then ScreenGui:Destroy() end
 
 ScreenGui = Instance.new("ScreenGui", LP.PlayerGui)
-ScreenGui.Name = "BladeSmoothUI"
+ScreenGui.Name = "BladeAdaptiveUI"
 ScreenGui.ResetOnSpawn = false 
 
 local MainBtn = Instance.new("TextButton", ScreenGui)
 MainBtn.Size = UDim2.new(0, 160, 0, 40)
 MainBtn.Position = UDim2.new(0.5, -80, 0.02, 0)
-MainBtn.Text = "AUTO PARRY: OFF"
-MainBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+MainBtn.Text = "ADAPTIVE PARRY: OFF"
+MainBtn.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 MainBtn.TextColor3 = Color3.new(1, 1, 1)
 MainBtn.Font = Enum.Font.SourceSansBold
 
 local active = false
-local canParry = true -- Eto ang mag-aayos ng double parry
+local canParry = true
 
 MainBtn.MouseButton1Click:Connect(function()
     active = not active
-    MainBtn.Text = active and "AUTO PARRY: ON" or "AUTO PARRY: OFF"
-    MainBtn.BackgroundColor3 = active and Color3.fromRGB(0, 180, 0) or Color3.fromRGB(30, 30, 30)
+    MainBtn.Text = active and "ADAPTIVE PARRY: ON" or "ADAPTIVE PARRY: OFF"
+    MainBtn.BackgroundColor3 = active and Color3.fromRGB(0, 150, 0) or Color3.fromRGB(20, 20, 20)
 end)
 
--- 2. CLEAN PARRY EXECUTION
+-- 2. FAST EXECUTION
 local function doParry()
     if not canParry then return end
-    canParry = false -- Lock muna para hindi mag-double
+    canParry = false
     
-    -- Isang mabilis na "Press and Release"
     VIM:SendMouseButtonEvent(0, 0, 0, true, game, 0)
     VIM:SendKeyEvent(true, Enum.KeyCode.F, false, game)
     
@@ -43,12 +42,12 @@ local function doParry()
     VIM:SendMouseButtonEvent(0, 0, 0, false, game, 0)
     VIM:SendKeyEvent(false, Enum.KeyCode.F, false, game)
     
-    -- Cooldown: 0.5 seconds bago pwedeng mag-parry ulit (Para iwas double-flick)
-    task.wait(0.5) 
+    -- Mabilis na cooldown para sa high-speed rounds
+    task.wait(0.35) 
     canParry = true
 end
 
--- 3. DETECTION LOOP
+-- 3. ADAPTIVE LOGIC
 RS.Heartbeat:Connect(function()
     if not active or not LP.Character or not LP.Character:FindFirstChild("HumanoidRootPart") then return end
     
@@ -57,26 +56,32 @@ RS.Heartbeat:Connect(function()
     if not balls then return end
 
     for _, ball in pairs(balls:GetChildren()) do
-        -- Check if target
+        -- Target Check (Attributes + Strict Color)
         local isTarget = ball:GetAttribute("target") == LP.Name
         if not isTarget then
             local hl = ball:FindFirstChildOfClass("Highlight")
-            if hl and hl.OutlineColor.R > 0.9 and hl.OutlineColor.G < 0.1 then
+            if hl and hl.OutlineColor.R > 0.8 and hl.OutlineColor.G < 0.2 then
                 isTarget = true
             end
         end
 
         if isTarget and canParry then
             local relPos = (hrp.Position - ball.Position)
+            local dist = relPos.Magnitude
+            local vel = ball.Velocity.Magnitude
+            
+            -- Direction Check (Dapat papalapit)
             local isMovingTowards = ball.Velocity:Dot(relPos) > 0
 
             if isMovingTowards then
-                local dist = relPos.Magnitude
-                local vel = ball.Velocity.Magnitude
+                -- === ADAPTIVE TIMING ===
+                -- Kapag sobrang bilis ng bola, mas kailangan ng "Lead Time"
+                -- 0.25 is the safety multiplier for high-speed ping
+                local triggerDist = 12 + (vel * 0.25)
                 
-                -- Prediction logic
-                local triggerDist = 14 + (vel * 0.22) 
-                
+                -- Emergency buffer para sa "Curve" balls
+                if vel > 150 then triggerDist = triggerDist + 5 end
+
                 if dist <= triggerDist then
                     doParry()
                 end
