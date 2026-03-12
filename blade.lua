@@ -1,51 +1,46 @@
--- [[ BLADE BALL: ADAPTIVE + CLASH SPAM MODE ]] --
+-- [[ BLADE BALL: SMOOTH CLASH & PARRY ]] --
 local Players = game:GetService("Players")
 local LP = Players.LocalPlayer
 local RS = game:GetService("RunService")
 local VIM = game:GetService("VirtualInputManager")
 
 -- 1. PERMANENT UI
-local ScreenGui = LP.PlayerGui:FindFirstChild("BladeClashUI")
+local ScreenGui = LP.PlayerGui:FindFirstChild("BladeSmoothUI")
 if ScreenGui then ScreenGui:Destroy() end
 
 ScreenGui = Instance.new("ScreenGui", LP.PlayerGui)
-ScreenGui.Name = "BladeClashUI"
+ScreenGui.Name = "BladeSmoothUI"
 ScreenGui.ResetOnSpawn = false 
 
 local MainBtn = Instance.new("TextButton", ScreenGui)
 MainBtn.Size = UDim2.new(0, 160, 0, 40)
 MainBtn.Position = UDim2.new(0.5, -80, 0.02, 0)
-MainBtn.Text = "CLASH MODE: OFF"
-MainBtn.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+MainBtn.Text = "AUTO PARRY: OFF"
+MainBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 MainBtn.TextColor3 = Color3.new(1, 1, 1)
 MainBtn.Font = Enum.Font.SourceSansBold
 
 local active = false
-local canParry = true
-local isClashing = false
+local lastParry = 0 -- Gagamitin natin 'to imbes na task.wait para walang lag
 
 MainBtn.MouseButton1Click:Connect(function()
     active = not active
-    MainBtn.Text = active and "CLASH MODE: ON" or "CLASH MODE: OFF"
-    MainBtn.BackgroundColor3 = active and Color3.fromRGB(200, 0, 0) or Color3.fromRGB(20, 20, 20)
+    MainBtn.Text = active and "AUTO PARRY: ON" or "AUTO PARRY: OFF"
+    MainBtn.BackgroundColor3 = active and Color3.fromRGB(0, 180, 0) or Color3.fromRGB(30, 30, 30)
 end)
 
--- 2. PARRY & SPAM EXECUTION
-local function doParry(spam)
-    if not canParry and not spam then return end
-    if not spam then canParry = false end
-    
-    -- Fast Click + F
+-- 2. CLEAN PARRY EXECUTION
+local function doParry()
+    -- Isang click lang talaga
     VIM:SendMouseButtonEvent(0, 0, 0, true, game, 0)
     VIM:SendKeyEvent(true, Enum.KeyCode.F, false, game)
-    task.wait()
+    
+    task.wait(0.01)
+    
     VIM:SendMouseButtonEvent(0, 0, 0, false, game, 0)
     VIM:SendKeyEvent(false, Enum.KeyCode.F, false, game)
     
-    if not spam then
-        task.wait(0.3) -- Standard cooldown
-        canParry = true
-    end
+    lastParry = tick() -- I-record kung kailan huling pumalo
 end
 
 -- 3. DETECTION LOOP
@@ -57,10 +52,11 @@ RS.Heartbeat:Connect(function()
     if not balls then return end
 
     for _, ball in pairs(balls:GetChildren()) do
+        -- Target Check
         local isTarget = ball:GetAttribute("target") == LP.Name
         if not isTarget then
             local hl = ball:FindFirstChildOfClass("Highlight")
-            if hl and hl.OutlineColor.R > 0.8 and hl.OutlineColor.G < 0.2 then
+            if hl and hl.OutlineColor.R > 0.9 and hl.OutlineColor.G < 0.1 then
                 isTarget = true
             end
         end
@@ -70,20 +66,20 @@ RS.Heartbeat:Connect(function()
             local dist = relPos.Magnitude
             local vel = ball.Velocity.Magnitude
             
-            -- Direction Check
+            -- Direction Check (Dapat papalapit)
             local isMovingTowards = ball.Velocity:Dot(relPos) > 0
 
             if isMovingTowards then
-                -- === CLASH DETECTION ===
-                -- Kapag ang bola ay nasa loob ng 10 studs, automatic SPAM mode
-                if dist <= 10 then
-                    doParry(true) -- True means ignore cooldown (SPAM)
-                else
-                    -- === NORMAL ADAPTIVE MODE ===
-                    local triggerDist = 12 + (vel * 0.26)
-                    if dist <= triggerDist and canParry then
-                        doParry(false)
-                    end
+                -- === ADJUSTED TIMING (Hindi Advance) ===
+                -- Binabaan natin ang 14 to 11 para saktong lapit bago pumalo
+                -- Binabaan din ang multiplier mula 0.22 to 0.19 para hindi advance
+                local triggerDist = 11 + (vel * 0.19)
+                
+                -- Clash Mode: Kapag dikit na (Clash), mas mabilis ang cooldown
+                local cooldown = (dist <= 15) and 0.05 or 0.45
+                
+                if dist <= triggerDist and (tick() - lastParry) >= cooldown then
+                    doParry()
                 end
             end
         end
