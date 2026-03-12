@@ -1,22 +1,22 @@
--- [[ BLADE BALL: PRO-TTI DETECTION (LAG-COMPENSATED) ]] --
+-- [[ BLADE BALL: UNIVERSAL SCANNER + PURE VISUAL PARRY ]] --
 local Players = game:GetService("Players")
 local LP = Players.LocalPlayer
 local RS = game:GetService("RunService")
 local VIM = game:GetService("VirtualInputManager")
 
 -- 1. PERMANENT UI
-local ScreenGui = LP.PlayerGui:FindFirstChild("BladeProUI")
+local ScreenGui = LP.PlayerGui:FindFirstChild("BladeUltraUI")
 if ScreenGui then ScreenGui:Destroy() end
 
 ScreenGui = Instance.new("ScreenGui", LP.PlayerGui)
-ScreenGui.Name = "BladeProUI"
+ScreenGui.Name = "BladeUltraUI"
 ScreenGui.ResetOnSpawn = false 
 
 local MainBtn = Instance.new("TextButton", ScreenGui)
 MainBtn.Size = UDim2.new(0, 160, 0, 40)
 MainBtn.Position = UDim2.new(0.5, -80, 0.02, 0)
-MainBtn.Text = "PRO PARRY: OFF"
-MainBtn.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+MainBtn.Text = "ULTRA PARRY: OFF"
+MainBtn.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
 MainBtn.TextColor3 = Color3.new(1, 1, 1)
 MainBtn.Font = Enum.Font.SourceSansBold
 
@@ -25,11 +25,11 @@ local lastParry = 0
 
 MainBtn.MouseButton1Click:Connect(function()
     active = not active
-    MainBtn.Text = active and "PRO PARRY: ON" or "PRO PARRY: OFF"
-    MainBtn.BackgroundColor3 = active and Color3.fromRGB(85, 0, 255) or Color3.fromRGB(15, 15, 15)
+    MainBtn.Text = active and "ULTRA PARRY: ON" or "ULTRA PARRY: OFF"
+    MainBtn.BackgroundColor3 = active and Color3.fromRGB(255, 0, 100) or Color3.fromRGB(10, 10, 10)
 end)
 
--- 2. PRECISION PARRY
+-- 2. PARRY EXECUTION
 local function doParry()
     VIM:SendMouseButtonEvent(0, 0, 0, true, game, 0)
     VIM:SendKeyEvent(true, Enum.KeyCode.F, false, game)
@@ -39,57 +39,56 @@ local function doParry()
     lastParry = tick()
 end
 
--- 3. THE "BRAIN" (TTI LOGIC)
+-- 3. FIND BALL (Deep Scanner)
+local function getBall()
+    for _, v in pairs(workspace:GetDescendants()) do
+        -- Hinahanap ang bola base sa pangalan o attributes ni Wiggity
+        if (v.Name == "Ball" or v.Name == "BaseBall" or v:GetAttribute("realBall")) and v:IsA("BasePart") then
+            return v
+        end
+    end
+end
+
+-- 4. MAIN DETECTION LOOP
 RS.Heartbeat:Connect(function()
     if not active or not LP.Character or not LP.Character:FindFirstChild("HumanoidRootPart") then return end
     
     local hrp = LP.Character.HumanoidRootPart
-    local balls = workspace:FindFirstChild("Balls")
-    if not balls then return end
-
-    for _, ball in pairs(balls:GetChildren()) do
-        -- Visual & Attribute Detection
-        local isTarget = ball:GetAttribute("target") == LP.Name
-        if not isTarget then
-            local hl = ball:FindFirstChildOfClass("Highlight")
-            if hl and hl.OutlineColor.R > 0.8 and hl.OutlineColor.G < 0.2 then
+    local ball = getBall()
+    
+    if ball then
+        -- VISUAL CHECK: Hanapin kung nag-re-red ang Highlight/Aura (Targeting you)
+        local isTarget = false
+        local hl = ball:FindFirstChildOfClass("Highlight") or ball:FindFirstChildOfClass("SelectionBox")
+        
+        if hl then
+            local color = hl:IsA("Highlight") and hl.OutlineColor or hl.Color3
+            if color.R > 0.7 and color.G < 0.3 then -- Strict Red check
                 isTarget = true
             end
         end
 
+        -- Kung target ka, gawin ang Math
         if isTarget then
-            local ballPos = ball.Position
-            local ballVel = ball.Velocity
-            local charPos = hrp.Position
-            
-            local relPos = (charPos - ballPos)
+            local relPos = (hrp.Position - ball.Position)
             local dist = relPos.Magnitude
+            local vel = ball.Velocity.Magnitude
             
-            -- Direction Check: Siguradong papunta sa'yo
-            local dot = ballVel.Unit:Dot(relPos.Unit)
-            
-            if dot > 0.65 then -- High precision angle (0.65+ means it's coming at you)
-                local speed = ballVel.Magnitude
-                
-                -- TIME TO IMPACT (TTI)
-                -- Eto yung sikreto: Distance divided by Speed = Seconds left
-                local tti = dist / speed
-                
-                -- ADJUSTABLE THRESHOLD (Ping Compensation)
-                -- 0.12 to 0.15 is the sweet spot. 
-                -- Taasan mo (e.g. 0.18) kung late ka lagi. Babaan kung advance.
-                local parryThreshold = 0.135 
-                
-                -- Dynamic Buffer: Mas maaga ng konti kung sobrang bilis ng bola
-                if speed > 150 then
-                    parryThreshold = 0.15
-                end
+            -- Direction Check (Dapat papalapit sa'yo)
+            local isMovingTowards = ball.Velocity:Dot(relPos) > 0
 
-                -- Clash/Spam Detection
-                local isClash = dist < 12
-                local cooldown = isClash and 0.01 or 0.4
+            if isMovingTowards then
+                -- TRIGGER DISTANCE (Adjusted for High Speed Skills)
+                -- 14 baseline + 0.22 velocity factor
+                local triggerDist = 14 + (vel * 0.22)
+                
+                -- Anti-Skill Buffer
+                if vel > 120 then triggerDist = triggerDist + 5 end
 
-                if (tti <= parryThreshold or dist < 8) and (tick() - lastParry) >= cooldown then
+                -- Cooldown Logic para sa Clash
+                local cooldown = (dist < 12) and 0.02 or 0.4
+                
+                if dist <= triggerDist and (tick() - lastParry) >= cooldown then
                     doParry()
                 end
             end
