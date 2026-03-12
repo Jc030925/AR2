@@ -1,84 +1,72 @@
--- [[ BLADE BALL: SMOOTH REPEATABLE PARRY ]] --
+-- [[ BLADE BALL (WIGGITY) - PERMANENT UI + SMOOTH PARRY ]] --
 local Players = game:GetService("Players")
 local LP = Players.LocalPlayer
 local RS = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-local Settings = {
-    Enabled = false,
-    Range = 30, 
-    Prediction = 0.25 -- Dagdag na distansya base sa bilis ng bola
-}
+-- 1. FIXED UI (Hindi na mawawala pag namatay)
+local ScreenGui = LP.PlayerGui:FindFirstChild("BladeUI")
+if ScreenGui then ScreenGui:Destroy() end
 
--- UI SETUP
-local ScreenGui = Instance.new("ScreenGui", LP.PlayerGui)
+ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "BladeUI"
+ScreenGui.Parent = LP.PlayerGui
+ScreenGui.ResetOnSpawn = false -- Eto ang sikreto para hindi mawala
+
 local MainBtn = Instance.new("TextButton", ScreenGui)
 MainBtn.Size = UDim2.new(0, 180, 0, 45)
 MainBtn.Position = UDim2.new(0.5, -90, 0.05, 0)
-MainBtn.Text = "SMOOTH PARRY: OFF"
-MainBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+MainBtn.Text = "AUTO PARRY: OFF"
+MainBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 MainBtn.TextColor3 = Color3.new(1, 1, 1)
-MainBtn.Draggable = true
+MainBtn.Font = Enum.Font.SourceSansBold
 
+local active = false
 MainBtn.MouseButton1Click:Connect(function()
-    Settings.Enabled = not Settings.Enabled
-    MainBtn.Text = Settings.Enabled and "SMOOTH PARRY: ON" or "SMOOTH PARRY: OFF"
-    MainBtn.BackgroundColor3 = Settings.Enabled and Color3.fromRGB(0, 180, 0) or Color3.fromRGB(35, 35, 35)
+    active = not active
+    MainBtn.Text = active and "AUTO PARRY: ON" or "AUTO PARRY: OFF"
+    MainBtn.BackgroundColor3 = active and Color3.fromRGB(0, 180, 0) or Color3.fromRGB(30, 30, 30)
 end)
 
--- GET REMOTE (Deep Scan)
-local function getRemote()
-    for _, v in pairs(ReplicatedStorage:GetDescendants()) do
-        if v:IsA("RemoteEvent") and (v.Name:find("Parry") or v.Name:find("Block") or v.Name:find("Reflect")) then
-            return v
+-- 2. WIGGITY DETECTION (Special for Original Game)
+local function getBall()
+    for _, b in pairs(workspace.Balls:GetChildren()) do
+        if b:GetAttribute("realBall") == true then
+            return b
         end
     end
 end
 
-local parryRemote = getRemote()
-
--- PARRY FUNCTION
-local function fireParry()
-    if parryRemote then
-        parryRemote:FireServer()
-    else
-        -- Backup Virtual Press
-        game:GetService("VirtualInputManager"):SendKeyEvent(true, Enum.KeyCode.F, false, game)
-        task.wait()
-        game:GetService("VirtualInputManager"):SendKeyEvent(false, Enum.KeyCode.F, false, game)
-    end
+local function parry()
+    -- Ginagamit natin yung pinakabagong Remote ng Wiggity
+    local r1 = ReplicatedStorage:FindFirstChild("Remotes") and ReplicatedStorage.Remotes:FindFirstChild("ParryButtonPress")
+    local r2 = ReplicatedStorage:FindFirstChild("Remotes") and ReplicatedStorage.Remotes:FindFirstChild("ParryAttempt")
+    
+    if r1 then r1:FireServer() end
+    if r2 then r2:FireServer() end
+    
+    -- Backup physical click
+    game:GetService("VirtualInputManager"):SendKeyEvent(true, Enum.KeyCode.F, false, game)
 end
 
--- ULTIMATE LOOP
-RS.PreRender:Connect(function() -- Mas mabilis kaysa Heartbeat
-    if not Settings.Enabled or not LP.Character then return end
+-- 3. SMOOTH LOOP (No Delay)
+RS.PreRender:Connect(function()
+    if not active or not LP.Character then return end
     
+    local ball = getBall()
     local hrp = LP.Character:FindFirstChild("HumanoidRootPart")
-    local balls = workspace:FindFirstChild("Balls")
     
-    if hrp and balls then
-        for _, ball in pairs(balls:GetChildren()) do
-            -- Tinitignan kung PULA o sa'yo nakatutok ang bola
-            local isTarget = ball:GetAttribute("target") == LP.Name or ball:GetAttribute("Target") == LP.Name
+    if ball and hrp then
+        local target = ball:GetAttribute("target")
+        if target == LP.Name then
+            local dist = (ball.Position - hrp.Position).Magnitude
+            local velocity = ball.Velocity.Magnitude
             
-            -- Alternative: Check if ball is red (some games use this)
-            if not isTarget and ball:FindFirstChild("Highlight") then
-                if ball.Highlight.OutlineColor == Color3.new(1, 0, 0) then
-                    isTarget = true
-                end
-            end
-
-            if isTarget then
-                local dist = (ball.Position - hrp.Position).Magnitude
-                local velocity = ball.Velocity.Magnitude
-                
-                -- Dynamic Range: Kung mabilis ang bola, mas malayo pa lang papitik na
-                local effectiveRange = Settings.Range + (velocity * Settings.Prediction)
-                
-                if dist <= effectiveRange then
-                    fireParry()
-                    task.wait(0.05) -- Konting hinga para hindi ma-kick pero mabilis pa rin
-                end
+            -- Dynamic Prediction (Para sa mabilis na bola)
+            local threshold = 20 + (velocity * 0.15)
+            
+            if dist <= threshold then
+                parry()
             end
         end
     end
