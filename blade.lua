@@ -1,21 +1,22 @@
--- [[ AR2: LOCK-ON AIMBOT + CAMERA FOLLOW FIX ]] --
+-- [[ AR2: PERFORMANCE OPTIMIZED (500 STUDS LIMIT) ]] --
 local Players = game:GetService("Players")
 local LP = Players.LocalPlayer
 local RS = game:GetService("RunService")
 local UIS = game:GetService("UserInputService")
 local Camera = workspace.CurrentCamera
 
--- 1. SETTINGS
+-- 1. SETTINGS (Range Restricted)
 _G.Aimbot = false
 _G.ESP = false
+local DETECT_RANGE = 500 -- 500 studs lang ang makikita at ma-a-aim
 local AimPart = "Head"
 
--- 2. UI MENU (External Design)
-local ScreenGui = LP.PlayerGui:FindFirstChild("AR2_FinalFix")
+-- 2. UI MENU
+local ScreenGui = LP.PlayerGui:FindFirstChild("AR2_RangeUI")
 if ScreenGui then ScreenGui:Destroy() end
 
 ScreenGui = Instance.new("ScreenGui", LP.PlayerGui)
-ScreenGui.Name = "AR2_FinalFix"
+ScreenGui.Name = "AR2_RangeUI"
 ScreenGui.ResetOnSpawn = false
 
 local MainFrame = Instance.new("Frame", ScreenGui)
@@ -32,7 +33,6 @@ local function createBtn(text, pos, callback)
     btn.Text = text .. ": OFF"
     btn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
     btn.TextColor3 = Color3.new(1, 1, 1)
-    btn.Font = Enum.Font.SourceSansBold
     
     local state = false
     btn.MouseButton1Click:Connect(function()
@@ -44,17 +44,27 @@ local function createBtn(text, pos, callback)
 end
 
 createBtn("AUTO AIM", 35, function(s) _G.Aimbot = s end)
-createBtn("PLAYER ESP", 68, function(s) _G.ESP = s end)
+createBtn("ESP", 68, function(s) _G.ESP = s end)
 
--- 3. THE FIX: ANTI-STUCK CAMERA LOGIC
-local function getClosest()
+-- 3. RANGE-BASED LOGIC
+local function getClosestInRange()
     local target, dist = nil, math.huge
+    if not LP.Character or not LP.Character:FindFirstChild("HumanoidRootPart") then return nil end
+    
+    local myPos = LP.Character.HumanoidRootPart.Position
+
     for _, p in pairs(Players:GetPlayers()) do
         if p ~= LP and p.Character and p.Character:FindFirstChild(AimPart) then
-            local pos, vis = Camera:WorldToViewportPoint(p.Character[AimPart].Position)
-            if vis then
-                local mag = (Vector2.new(pos.X, pos.Y) - UIS:GetMouseLocation()).Magnitude
-                if mag < dist then target = p.Character[AimPart]; dist = mag end
+            local enemyPos = p.Character[AimPart].Position
+            local studDist = (myPos - enemyPos).Magnitude
+
+            -- Check kung nasa 500 studs lang
+            if studDist <= DETECT_RANGE then
+                local screenPos, vis = Camera:WorldToViewportPoint(enemyPos)
+                if vis then
+                    local mag = (Vector2.new(screenPos.X, screenPos.Y) - UIS:GetMouseLocation()).Magnitude
+                    if mag < dist then target = p.Character[AimPart]; dist = mag end
+                end
             end
         end
     end
@@ -62,25 +72,31 @@ local function getClosest()
 end
 
 RS.RenderStepped:Connect(function()
-    -- ESP UPDATE
-    if _G.ESP then
-        for _, p in pairs(Players:GetPlayers()) do
-            if p ~= LP and p.Character then
-                local hl = p.Character:FindFirstChild("Fix_HL") or Instance.new("Highlight", p.Character)
-                hl.Name = "Fix_HL"
+    if not LP.Character or not LP.Character:FindFirstChild("HumanoidRootPart") then return end
+    local myPos = LP.Character.HumanoidRootPart.Position
+
+    -- RANGE-BASED ESP
+    for _, p in pairs(Players:GetPlayers()) do
+        if p ~= LP and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+            local hl = p.Character:FindFirstChild("Range_HL") or Instance.new("Highlight", p.Character)
+            hl.Name = "Range_HL"
+            
+            local d = (myPos - p.Character.HumanoidRootPart.Position).Magnitude
+            if _G.ESP and d <= DETECT_RANGE then
                 hl.Enabled = true
-                hl.FillColor = Color3.fromRGB(255, 0, 0)
+                hl.FillColor = Color3.fromRGB(0, 255, 100) -- Green kung malapit
                 hl.FillTransparency = 0.5
+            else
+                hl.Enabled = false -- Patay ang ESP pag malayo (Iwas lag)
             end
         end
     end
 
     -- AUTO AIM (RIGHT CLICK)
     if _G.Aimbot and UIS:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then
-        local t = getClosest()
+        local t = getClosestInRange()
         if t then
-            -- FORCE CAMERA TO FOLLOW CHARACTER WHILE LOOKING AT TARGET
-            Camera.CameraType = Enum.CameraType.Custom -- Pinipilit na hindi mag-Scriptable mode
+            -- "Tutok na tutok" pero sumusunod sa position mo
             Camera.CFrame = CFrame.lookAt(Camera.CFrame.Position, t.Position)
         end
     end
