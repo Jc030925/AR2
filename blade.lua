@@ -1,4 +1,4 @@
--- [[ AR2: STICKY AUTO AIM + FIXED CAMERA FOLLOW ]] --
+-- [[ AR2: STICKY AUTO AIM + FIXED CAMERA FOLLOW ]] -- 
 local Players = game:GetService("Players")
 local LP = Players.LocalPlayer
 local RS = game:GetService("RunService")
