@@ -1,4 +1,4 @@
--- [[ AR2: SMOOTH LERP AIM + ATTACHED CAMERA ]] --
+-- [[ AR2: MOUSE-RELATIVE SMOOTH AIM + RANGE ESP ]] --
 local Players = game:GetService("Players")
 local LP = Players.LocalPlayer
 local RS = game:GetService("RunService")
@@ -8,16 +8,16 @@ local Camera = workspace.CurrentCamera
 -- 1. SETTINGS
 _G.Aimbot = false
 _G.ESP = false
-local RANGE = 500 -- Limit para iwas lag
+local DETECT_RANGE = 500 -- 500 studs limit para iwas lag
 local AimPart = "Head"
-local Smoothness = 0.15 -- Babaan mo ito (e.g. 0.05) para mas "legit" tignan
+local Smoothness = 0.2 -- Lakas ng "magnet" (0.1 to 0.5)
 
 -- 2. UI MENU
-local ScreenGui = LP.PlayerGui:FindFirstChild("AR2_SmoothUI")
+local ScreenGui = LP.PlayerGui:FindFirstChild("AR2_RelativeUI")
 if ScreenGui then ScreenGui:Destroy() end
 
 ScreenGui = Instance.new("ScreenGui", LP.PlayerGui)
-ScreenGui.Name = "AR2_SmoothUI"
+ScreenGui.Name = "AR2_RelativeUI"
 ScreenGui.ResetOnSpawn = false
 
 local MainFrame = Instance.new("Frame", ScreenGui)
@@ -47,7 +47,7 @@ end
 createBtn("SMOOTH AIM", 35, function(s) _G.Aimbot = s end)
 createBtn("RANGE ESP", 68, function(s) _G.ESP = s end)
 
--- 3. LOGIC (SMOOTH LERP - HINDI MAIIWAN ANG CAMERA)
+-- 3. LOGIC (MOUSE-RELATIVE SMOOTHING)
 local function getClosest()
     local target, dist = nil, math.huge
     if not LP.Character or not LP.Character:FindFirstChild("HumanoidRootPart") then return end
@@ -55,10 +55,10 @@ local function getClosest()
     for _, p in pairs(Players:GetPlayers()) do
         if p ~= LP and p.Character and p.Character:FindFirstChild(AimPart) then
             local d = (LP.Character.HumanoidRootPart.Position - p.Character.HumanoidRootPart.Position).Magnitude
-            if d <= RANGE then
-                local pos, vis = Camera:WorldToViewportPoint(p.Character[AimPart].Position)
+            if d <= DETECT_RANGE then
+                local screenPos, vis = Camera:WorldToViewportPoint(p.Character[AimPart].Position)
                 if vis then
-                    local mag = (Vector2.new(pos.X, pos.Y) - UIS:GetMouseLocation()).Magnitude
+                    local mag = (Vector2.new(screenPos.X, screenPos.Y) - UIS:GetMouseLocation()).Magnitude
                     if mag < dist then target = p.Character[AimPart]; dist = mag end
                 end
             end
@@ -69,28 +69,35 @@ end
 
 RS.RenderStepped:Connect(function()
     if not LP.Character or not LP.Character:FindFirstChild("HumanoidRootPart") then return end
-    
-    -- ESP UPDATE
+    local myRoot = LP.Character.HumanoidRootPart
+
+    -- RANGE ESP (500 STUDS)
     if _G.ESP then
         for _, p in pairs(Players:GetPlayers()) do
             if p ~= LP and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+                local d = (myRoot.Position - p.Character.HumanoidRootPart.Position).Magnitude
                 local hl = p.Character:FindFirstChild("Smooth_HL") or Instance.new("Highlight", p.Character)
-                hl.Name = "Smooth_HL"
-                local d = (LP.Character.HumanoidRootPart.Position - p.Character.HumanoidRootPart.Position).Magnitude
-                hl.Enabled = (d <= RANGE)
+                hl.Enabled = (d <= DETECT_RANGE)
                 hl.FillColor = Color3.fromRGB(255, 0, 0)
             end
         end
     end
 
-    -- SMOOTH AIM (Right Click)
+    -- MOUSE-RELATIVE AIM (Right Click)
     if _G.Aimbot and UIS:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then
         local t = getClosest()
         if t then
-            -- ITO ANG FIX: Gagamit tayo ng Lerp para hindi mag-snap
-            -- Sa halip na palitan ang CFrame, "idudulas" lang natin yung camera
-            local targetCFrame = CFrame.new(Camera.CFrame.Position, t.Position)
-            Camera.CFrame = Camera.CFrame:Lerp(targetCFrame, Smoothness)
+            -- ITO ANG FIX: Imbes na i-overwrite ang Camera, i-calculate natin ang Angle Difference
+            local targetPos, onScreen = Camera:WorldToViewportPoint(t.Position)
+            if onScreen then
+                local mousePos = UIS:GetMouseLocation()
+                -- Dahan-dahang "hihilain" ang camera angle patungo sa target
+                local deltaX = (targetPos.X - mousePos.X) * Smoothness
+                local deltaY = (targetPos.Y - mousePos.Y) * Smoothness
+                
+                -- Ina-apply ang movement sa mouse rotation imbes na sa camera coordinate
+                mousemoverel(deltaX, deltaY) 
+            end
         end
     end
 end)
