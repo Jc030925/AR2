@@ -1,4 +1,4 @@
--- [[ AR2: FIXED NON-STICKY AIMBOT + CLEAN ESP ]] --
+-- [[ AR2: STICKY AUTO AIM + FIXED CAMERA FOLLOW ]] --
 local Players = game:GetService("Players")
 local LP = Players.LocalPlayer
 local RS = game:GetService("RunService")
@@ -11,11 +11,11 @@ _G.ESP = false
 local AimPart = "Head"
 
 -- 2. UI MENU
-local ScreenGui = LP.PlayerGui:FindFirstChild("AR2_FixUI")
+local ScreenGui = LP.PlayerGui:FindFirstChild("AR2_FinalUI")
 if ScreenGui then ScreenGui:Destroy() end
 
 ScreenGui = Instance.new("ScreenGui", LP.PlayerGui)
-ScreenGui.Name = "AR2_FixUI"
+ScreenGui.Name = "AR2_FinalUI"
 ScreenGui.ResetOnSpawn = false
 
 local MainFrame = Instance.new("Frame", ScreenGui)
@@ -42,10 +42,10 @@ local function createBtn(text, pos, callback)
     end)
 end
 
-createBtn("AIMBOT", 35, function(s) _G.Aimbot = s end)
+createBtn("AUTO AIM", 35, function(s) _G.Aimbot = s end)
 createBtn("ESP", 68, function(s) _G.ESP = s end)
 
--- 3. UPDATED LOGIC (HINDI NA IIWAN ANG CAMERA)
+-- 3. UPDATED LOGIC (HINDI NA STUCK ANG CAMERA)
 local function getClosest()
     local target, dist = nil, math.huge
     for _, p in pairs(Players:GetPlayers()) do
@@ -64,19 +64,24 @@ RS.RenderStepped:Connect(function()
     if _G.Aimbot and UIS:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then
         local t = getClosest()
         if t and LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then
-            -- SOLUSYON: I-update ang Camera CFrame pero i-maintain ang Focus sa player
-            local targetPos = t.Position
+            -- Pinipilit ang camera na tumingin sa target habang naka-attach sa player
+            local lookAtPos = t.Position
             local camPos = Camera.CFrame.Position
-            Camera.CFrame = CFrame.lookAt(camPos, targetPos)
-            Camera.Focus = LP.Character.HumanoidRootPart.CFrame -- Pinipilit ang camera na sumunod sa player
+            
+            -- Ito ang sekreto: CFrame.lookAt na hindi binabago ang distansya ng camera
+            Camera.CFrame = CFrame.lookAt(camPos, lookAtPos)
         end
+    else
+        -- Binabalik ang control sa Roblox para hindi ma-stuck ang camera
+        Camera.CameraType = Enum.CameraType.Custom
     end
     
     -- CLEAN ESP
     if _G.ESP then
         for _, p in pairs(Players:GetPlayers()) do
             if p ~= LP and p.Character then
-                local hl = p.Character:FindFirstChild("Highlight") or Instance.new("Highlight", p.Character)
+                local hl = p.Character:FindFirstChild("ESP_Highlight") or Instance.new("Highlight", p.Character)
+                hl.Name = "ESP_Highlight"
                 hl.Enabled = true
                 hl.FillColor = Color3.fromRGB(255, 0, 0)
                 hl.FillTransparency = 0.5
