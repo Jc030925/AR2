@@ -1,4 +1,4 @@
--- [[ APOCALYPSE RISING 2: CLEAN AIM + ESP ]] --
+-- [[ AR2: FIX CAMERA SNAP + CLEAN ESP ]] --
 local Players = game:GetService("Players")
 local LP = Players.LocalPlayer
 local RS = game:GetService("RunService")
@@ -8,14 +8,14 @@ local Camera = workspace.CurrentCamera
 -- 1. SETTINGS
 _G.Aimbot = false
 _G.ESP = false
-local AimPart = "Head" -- Pwede mong gawing "UpperTorso" kung gusto mo mas legit
+local AimPart = "Head"
 
--- 2. UI MENU (Simple & Clean)
-local ScreenGui = LP.PlayerGui:FindFirstChild("AR2_CleanUI")
+-- 2. UI MENU
+local ScreenGui = LP.PlayerGui:FindFirstChild("AR2_FixedUI")
 if ScreenGui then ScreenGui:Destroy() end
 
 ScreenGui = Instance.new("ScreenGui", LP.PlayerGui)
-ScreenGui.Name = "AR2_CleanUI"
+ScreenGui.Name = "AR2_FixedUI"
 ScreenGui.ResetOnSpawn = false
 
 local MainFrame = Instance.new("Frame", ScreenGui)
@@ -24,13 +24,6 @@ MainFrame.Position = UDim2.new(0.02, 0, 0.4, 0)
 MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 MainFrame.Active = true
 MainFrame.Draggable = true 
-
-local Title = Instance.new("TextLabel", MainFrame)
-Title.Size = UDim2.new(1, 0, 0, 25)
-Title.Text = "AR2 EXTERNAL"
-Title.TextColor3 = Color3.new(1, 1, 1)
-Title.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-Title.Font = Enum.Font.SourceSansBold
 
 local function createBtn(text, pos, callback)
     local btn = Instance.new("TextButton", MainFrame)
@@ -52,7 +45,7 @@ end
 createBtn("AIMBOT", 35, function(s) _G.Aimbot = s end)
 createBtn("ESP", 68, function(s) _G.ESP = s end)
 
--- 3. LOGIC (AIM & ESP)
+-- 3. LOGIC (FIXED CAMERA SNAP)
 local function getClosest()
     local target, dist = nil, math.huge
     for _, p in pairs(Players:GetPlayers()) do
@@ -68,23 +61,30 @@ local function getClosest()
 end
 
 RS.RenderStepped:Connect(function()
-    -- AIMBOT (Right Click to Snap)
+    -- AIMBOT (Right Click)
     if _G.Aimbot and UIS:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then
         local t = getClosest()
         if t then 
-            Camera.CFrame = CFrame.new(Camera.CFrame.Position, t.Position) 
+            -- Imbes na i-overwrite ang buong CFrame, igagalaw lang natin ang tingin
+            Camera.CFrame = CFrame.lookAt(Camera.CFrame.Position, t.Position)
         end
     end
     
-    -- ESP UPDATE (Pure Highlight)
-    for _, p in pairs(Players:GetPlayers()) do
-        if p ~= LP and p.Character then
-            local hl = p.Character:FindFirstChild("ESP_Highlight") or Instance.new("Highlight", p.Character)
-            hl.Name = "ESP_Highlight"
-            hl.Enabled = _G.ESP
-            hl.FillColor = Color3.fromRGB(255, 0, 0) -- Red Glow
-            hl.OutlineColor = Color3.fromRGB(255, 255, 255)
-            hl.FillTransparency = 0.5
+    -- ESP UPDATE
+    if _G.ESP then
+        for _, p in pairs(Players:GetPlayers()) do
+            if p ~= LP and p.Character then
+                local hl = p.Character:FindFirstChild("Highlight") or Instance.new("Highlight", p.Character)
+                hl.Enabled = true
+                hl.FillColor = Color3.fromRGB(255, 0, 0)
+                hl.FillTransparency = 0.5
+            end
+        end
+    else
+        for _, p in pairs(Players:GetPlayers()) do
+            if p.Character and p.Character:FindFirstChild("Highlight") then
+                p.Character.Highlight.Enabled = false
+            end
         end
     end
 end)
