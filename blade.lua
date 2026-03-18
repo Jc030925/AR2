@@ -1,4 +1,4 @@
--- [[ AR2: STICKY CAMERA + WORKING ESP ]] --
+-- [[ AR2: MOUSE-MOVE AIM + RANGE ESP ]] --
 local Players = game:GetService("Players")
 local LP = Players.LocalPlayer
 local RS = game:GetService("RunService")
@@ -8,16 +8,16 @@ local Camera = workspace.CurrentCamera
 -- 1. SETTINGS
 _G.Aimbot = false
 _G.ESP = false
-local RANGE = 500 -- 500 studs limit (Para iwas lag at iwas camera bug)
+local RANGE = 500 
 local AimPart = "Head"
-local Smoothness = 0.1 -- Smoothness ng tutok
+local Sensitivity = 0.35 -- Taasan mo ito (e.g. 0.8) kung gusto mo ng mas mabilis na tutok
 
 -- 2. UI MENU
-local ScreenGui = LP.PlayerGui:FindFirstChild("AR2_FinalUI")
+local ScreenGui = LP.PlayerGui:FindFirstChild("AR2_MouseUI")
 if ScreenGui then ScreenGui:Destroy() end
 
 ScreenGui = Instance.new("ScreenGui", LP.PlayerGui)
-ScreenGui.Name = "AR2_FinalUI"
+ScreenGui.Name = "AR2_MouseUI"
 ScreenGui.ResetOnSpawn = false
 
 local MainFrame = Instance.new("Frame", ScreenGui)
@@ -47,7 +47,7 @@ end
 createBtn("SMOOTH AIM", 35, function(s) _G.Aimbot = s end)
 createBtn("RANGE ESP", 68, function(s) _G.ESP = s end)
 
--- 3. LOGIC
+-- 3. LOGIC (MOUSE MOVEMENT)
 local function getClosest()
     local target, dist = nil, math.huge
     if not LP.Character or not LP.Character:FindFirstChild("HumanoidRootPart") then return end
@@ -68,34 +68,32 @@ local function getClosest()
 end
 
 RS.RenderStepped:Connect(function()
-    if not LP.Character or not LP.Character:FindFirstChild("HumanoidRootPart") then return end
-    local myRoot = LP.Character.HumanoidRootPart
+    if not LP.Character then return end
 
     -- ESP (MALAPIT LANG)
-    for _, p in pairs(Players:GetPlayers()) do
-        if p ~= LP and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
-            local d = (myRoot.Position - p.Character.HumanoidRootPart.Position).Magnitude
-            local hl = p.Character:FindFirstChild("AR2_Highlight") or Instance.new("Highlight", p.Character)
-            hl.Name = "AR2_Highlight"
-            
-            if _G.ESP and d <= RANGE then
-                hl.Enabled = true
+    if _G.ESP then
+        for _, p in pairs(Players:GetPlayers()) do
+            if p ~= LP and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+                local d = (LP.Character.HumanoidRootPart.Position - p.Character.HumanoidRootPart.Position).Magnitude
+                local hl = p.Character:FindFirstChild("AR2_ESP") or Instance.new("Highlight", p.Character)
+                hl.Name = "AR2_ESP"
+                hl.Enabled = (d <= RANGE)
                 hl.FillColor = Color3.fromRGB(255, 0, 0)
-                hl.FillTransparency = 0.5
-                hl.OutlineColor = Color3.new(1, 1, 1)
-            else
-                hl.Enabled = false
             end
         end
     end
 
-    -- SMOOTH AIM (Right Click)
+    -- MOUSE AIM (Right Click)
     if _G.Aimbot and UIS:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then
         local t = getClosest()
         if t then
-            -- Pinapanatili ang camera sa character pero itatapat sa target
-            local targetCFrame = CFrame.new(Camera.CFrame.Position, t.Position)
-            Camera.CFrame = Camera.CFrame:Lerp(targetCFrame, Smoothness)
+            local screenPos, onScreen = Camera:WorldToViewportPoint(t.Position)
+            if onScreen then
+                local mousePos = UIS:GetMouseLocation()
+                -- Hinihila ang mouse papunta sa target
+                -- mousemoverel(x, y) ay standard sa Xeno/Wave/Solara
+                mousemoverel((screenPos.X - mousePos.X) * Sensitivity, (screenPos.Y - mousePos.Y) * Sensitivity)
+            end
         end
     end
 end)
