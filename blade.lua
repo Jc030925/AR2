@@ -1,6 +1,6 @@
 -- [[ AR2: MOUSE-RELATIVE SMOOTH AIM + RANGE ESP ]] --
 local Players = game:GetService("Players")
-local LP = Players.LocalPlayer
+local LP = Players.LocalPlayer 
 local RS = game:GetService("RunService")
 local UIS = game:GetService("UserInputService")
 local Camera = workspace.CurrentCamera 
