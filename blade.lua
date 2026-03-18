@@ -7,7 +7,7 @@ local Camera = workspace.CurrentCamera
 
 -- 1. SETTINGS
 _G.Aimbot = false
-_G.ESP = false
+_G.ESP = false 
 local AimPart = "Head"
 
 -- 2. UI MENU
