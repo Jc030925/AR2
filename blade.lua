@@ -4,7 +4,7 @@ local LP = Players.LocalPlayer
 local RS = game:GetService("RunService")
 local UIS = game:GetService("UserInputService")
 local Camera = workspace.CurrentCamera
-
+ 
 -- 1. SETTINGS
 _G.Aimbot = false
 _G.ESP = false
