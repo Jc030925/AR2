@@ -1,4 +1,4 @@
--- [[ AR2: STICKY AIM + ANTI-DETACH CAMERA ]] --
+-- [[ AR2: ANCHORED CAMERA AIM + RANGE ESP ]] --
 local Players = game:GetService("Players")
 local LP = Players.LocalPlayer
 local RS = game:GetService("RunService")
@@ -8,15 +8,15 @@ local Camera = workspace.CurrentCamera
 -- 1. SETTINGS
 _G.Aimbot = false
 _G.ESP = false
-local DETECT_RANGE = 500 -- Distansya lang na ma-detect
+local RANGE = 500 -- 500 studs limit para iwas lag
 local AimPart = "Head"
 
 -- 2. UI MENU
-local ScreenGui = LP.PlayerGui:FindFirstChild("AR2_FixedCamUI")
+local ScreenGui = LP.PlayerGui:FindFirstChild("AR2_AnchorUI")
 if ScreenGui then ScreenGui:Destroy() end
 
 ScreenGui = Instance.new("ScreenGui", LP.PlayerGui)
-ScreenGui.Name = "AR2_FixedCamUI"
+ScreenGui.Name = "AR2_AnchorUI"
 ScreenGui.ResetOnSpawn = false
 
 local MainFrame = Instance.new("Frame", ScreenGui)
@@ -44,24 +44,21 @@ local function createBtn(text, pos, callback)
 end
 
 createBtn("AUTO AIM", 35, function(s) _G.Aimbot = s end)
-createBtn("PLAYER ESP", 68, function(s) _G.ESP = s end)
+createBtn("ESP", 68, function(s) _G.ESP = s end)
 
--- 3. LOGIC (FIXED CAMERA ATTACHMENT)
-local function getTarget()
+-- 3. LOGIC (FIXED CAMERA ANCHOR)
+local function getClosest()
     local target, dist = nil, math.huge
     if not LP.Character or not LP.Character:FindFirstChild("HumanoidRootPart") then return end
     
     for _, p in pairs(Players:GetPlayers()) do
         if p ~= LP and p.Character and p.Character:FindFirstChild(AimPart) then
-            local enemyRoot = p.Character:FindFirstChild("HumanoidRootPart")
-            if enemyRoot then
-                local d = (LP.Character.HumanoidRootPart.Position - enemyRoot.Position).Magnitude
-                if d <= DETECT_RANGE then
-                    local screenPos, vis = Camera:WorldToViewportPoint(p.Character[AimPart].Position)
-                    if vis then
-                        local mag = (Vector2.new(screenPos.X, screenPos.Y) - UIS:GetMouseLocation()).Magnitude
-                        if mag < dist then target = p.Character[AimPart]; dist = mag end
-                    end
+            local d = (LP.Character.HumanoidRootPart.Position - p.Character.HumanoidRootPart.Position).Magnitude
+            if d <= RANGE then
+                local pos, vis = Camera:WorldToViewportPoint(p.Character[AimPart].Position)
+                if vis then
+                    local mag = (Vector2.new(pos.X, pos.Y) - UIS:GetMouseLocation()).Magnitude
+                    if mag < dist then target = p.Character[AimPart]; dist = mag end
                 end
             end
         end
@@ -71,31 +68,30 @@ end
 
 RS.RenderStepped:Connect(function()
     if not LP.Character or not LP.Character:FindFirstChild("HumanoidRootPart") then return end
-    local myRoot = LP.Character.HumanoidRootPart
+    local Root = LP.Character.HumanoidRootPart
 
-    -- ESP (MALAPIT LANG)
+    -- ESP UPDATE (MALAPIT LANG)
     if _G.ESP then
         for _, p in pairs(Players:GetPlayers()) do
             if p ~= LP and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
-                local d = (myRoot.Position - p.Character.HumanoidRootPart.Position).Magnitude
+                local d = (Root.Position - p.Character.HumanoidRootPart.Position).Magnitude
                 local hl = p.Character:FindFirstChild("Highlight") or Instance.new("Highlight", p.Character)
-                hl.Enabled = (d <= DETECT_RANGE)
+                hl.Enabled = (d <= RANGE)
                 hl.FillColor = Color3.fromRGB(255, 0, 0)
             end
         end
     end
 
-    -- AUTO AIM (RIGHT CLICK)
+    -- FIXED AUTO AIM (Right Click)
     if _G.Aimbot and UIS:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then
-        local t = getTarget()
+        local t = getClosest()
         if t then
-            -- ITO ANG FIX: Sabay ang Focus at CFrame sa player position
-            local targetPos = t.Position
-            local camPos = Camera.CFrame.Position
+            -- ITO ANG FIX: Kinukuha ang distansya ng camera mo sa character (Offset)
+            local offset = Camera.CFrame.Position - Root.Position
             
-            -- Pinipilit sumunod ng camera focus sa RootPart mo para hindi ka maiwan
-            Camera.Focus = myRoot.CFrame 
-            Camera.CFrame = CFrame.lookAt(camPos, targetPos)
+            -- Ina-apply ang lookAt pero pinapanatili ang offset para sumunod ang camera
+            Camera.Focus = Root.CFrame
+            Camera.CFrame = CFrame.lookAt(Root.Position + offset, t.Position)
         end
     end
 end)
