@@ -1,4 +1,4 @@
--- [[ AR2: FIX CAMERA SNAP + CLEAN ESP ]] --
+-- [[ AR2: FIXED NON-STICKY AIMBOT + CLEAN ESP ]] --
 local Players = game:GetService("Players")
 local LP = Players.LocalPlayer
 local RS = game:GetService("RunService")
@@ -7,15 +7,15 @@ local Camera = workspace.CurrentCamera
 
 -- 1. SETTINGS
 _G.Aimbot = false
-_G.ESP = false 
+_G.ESP = false
 local AimPart = "Head"
 
 -- 2. UI MENU
-local ScreenGui = LP.PlayerGui:FindFirstChild("AR2_FixedUI")
+local ScreenGui = LP.PlayerGui:FindFirstChild("AR2_FixUI")
 if ScreenGui then ScreenGui:Destroy() end
 
 ScreenGui = Instance.new("ScreenGui", LP.PlayerGui)
-ScreenGui.Name = "AR2_FixedUI"
+ScreenGui.Name = "AR2_FixUI"
 ScreenGui.ResetOnSpawn = false
 
 local MainFrame = Instance.new("Frame", ScreenGui)
@@ -45,7 +45,7 @@ end
 createBtn("AIMBOT", 35, function(s) _G.Aimbot = s end)
 createBtn("ESP", 68, function(s) _G.ESP = s end)
 
--- 3. LOGIC (FIXED CAMERA SNAP)
+-- 3. UPDATED LOGIC (HINDI NA IIWAN ANG CAMERA)
 local function getClosest()
     local target, dist = nil, math.huge
     for _, p in pairs(Players:GetPlayers()) do
@@ -61,16 +61,18 @@ local function getClosest()
 end
 
 RS.RenderStepped:Connect(function()
-    -- AIMBOT (Right Click)
     if _G.Aimbot and UIS:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then
         local t = getClosest()
-        if t then 
-            -- Imbes na i-overwrite ang buong CFrame, igagalaw lang natin ang tingin
-            Camera.CFrame = CFrame.lookAt(Camera.CFrame.Position, t.Position)
+        if t and LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then
+            -- SOLUSYON: I-update ang Camera CFrame pero i-maintain ang Focus sa player
+            local targetPos = t.Position
+            local camPos = Camera.CFrame.Position
+            Camera.CFrame = CFrame.lookAt(camPos, targetPos)
+            Camera.Focus = LP.Character.HumanoidRootPart.CFrame -- Pinipilit ang camera na sumunod sa player
         end
     end
     
-    -- ESP UPDATE
+    -- CLEAN ESP
     if _G.ESP then
         for _, p in pairs(Players:GetPlayers()) do
             if p ~= LP and p.Character then
@@ -78,12 +80,6 @@ RS.RenderStepped:Connect(function()
                 hl.Enabled = true
                 hl.FillColor = Color3.fromRGB(255, 0, 0)
                 hl.FillTransparency = 0.5
-            end
-        end
-    else
-        for _, p in pairs(Players:GetPlayers()) do
-            if p.Character and p.Character:FindFirstChild("Highlight") then
-                p.Character.Highlight.Enabled = false
             end
         end
     end
