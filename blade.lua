@@ -1,23 +1,23 @@
--- [[ AR2: MOUSE-RELATIVE SMOOTH AIM + RANGE ESP ]] --
+-- [[ AR2: STICKY CAMERA + WORKING ESP ]] --
 local Players = game:GetService("Players")
-local LP = Players.LocalPlayer 
+local LP = Players.LocalPlayer
 local RS = game:GetService("RunService")
 local UIS = game:GetService("UserInputService")
-local Camera = workspace.CurrentCamera 
+local Camera = workspace.CurrentCamera
 
 -- 1. SETTINGS
 _G.Aimbot = false
 _G.ESP = false
-local DETECT_RANGE = 500 -- 500 studs limit para iwas lag
+local RANGE = 500 -- 500 studs limit (Para iwas lag at iwas camera bug)
 local AimPart = "Head"
-local Smoothness = 0.2 -- Lakas ng "magnet" (0.1 to 0.5)
+local Smoothness = 0.1 -- Smoothness ng tutok
 
 -- 2. UI MENU
-local ScreenGui = LP.PlayerGui:FindFirstChild("AR2_RelativeUI")
+local ScreenGui = LP.PlayerGui:FindFirstChild("AR2_FinalUI")
 if ScreenGui then ScreenGui:Destroy() end
 
 ScreenGui = Instance.new("ScreenGui", LP.PlayerGui)
-ScreenGui.Name = "AR2_RelativeUI"
+ScreenGui.Name = "AR2_FinalUI"
 ScreenGui.ResetOnSpawn = false
 
 local MainFrame = Instance.new("Frame", ScreenGui)
@@ -47,7 +47,7 @@ end
 createBtn("SMOOTH AIM", 35, function(s) _G.Aimbot = s end)
 createBtn("RANGE ESP", 68, function(s) _G.ESP = s end)
 
--- 3. LOGIC (MOUSE-RELATIVE SMOOTHING)
+-- 3. LOGIC
 local function getClosest()
     local target, dist = nil, math.huge
     if not LP.Character or not LP.Character:FindFirstChild("HumanoidRootPart") then return end
@@ -55,10 +55,10 @@ local function getClosest()
     for _, p in pairs(Players:GetPlayers()) do
         if p ~= LP and p.Character and p.Character:FindFirstChild(AimPart) then
             local d = (LP.Character.HumanoidRootPart.Position - p.Character.HumanoidRootPart.Position).Magnitude
-            if d <= DETECT_RANGE then
-                local screenPos, vis = Camera:WorldToViewportPoint(p.Character[AimPart].Position)
+            if d <= RANGE then
+                local pos, vis = Camera:WorldToViewportPoint(p.Character[AimPart].Position)
                 if vis then
-                    local mag = (Vector2.new(screenPos.X, screenPos.Y) - UIS:GetMouseLocation()).Magnitude
+                    local mag = (Vector2.new(pos.X, pos.Y) - UIS:GetMouseLocation()).Magnitude
                     if mag < dist then target = p.Character[AimPart]; dist = mag end
                 end
             end
@@ -71,33 +71,31 @@ RS.RenderStepped:Connect(function()
     if not LP.Character or not LP.Character:FindFirstChild("HumanoidRootPart") then return end
     local myRoot = LP.Character.HumanoidRootPart
 
-    -- RANGE ESP (500 STUDS)
-    if _G.ESP then
-        for _, p in pairs(Players:GetPlayers()) do
-            if p ~= LP and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
-                local d = (myRoot.Position - p.Character.HumanoidRootPart.Position).Magnitude
-                local hl = p.Character:FindFirstChild("Smooth_HL") or Instance.new("Highlight", p.Character)
-                hl.Enabled = (d <= DETECT_RANGE)
+    -- ESP (MALAPIT LANG)
+    for _, p in pairs(Players:GetPlayers()) do
+        if p ~= LP and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+            local d = (myRoot.Position - p.Character.HumanoidRootPart.Position).Magnitude
+            local hl = p.Character:FindFirstChild("AR2_Highlight") or Instance.new("Highlight", p.Character)
+            hl.Name = "AR2_Highlight"
+            
+            if _G.ESP and d <= RANGE then
+                hl.Enabled = true
                 hl.FillColor = Color3.fromRGB(255, 0, 0)
+                hl.FillTransparency = 0.5
+                hl.OutlineColor = Color3.new(1, 1, 1)
+            else
+                hl.Enabled = false
             end
         end
     end
 
-    -- MOUSE-RELATIVE AIM (Right Click)
+    -- SMOOTH AIM (Right Click)
     if _G.Aimbot and UIS:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then
         local t = getClosest()
         if t then
-            -- ITO ANG FIX: Imbes na i-overwrite ang Camera, i-calculate natin ang Angle Difference
-            local targetPos, onScreen = Camera:WorldToViewportPoint(t.Position)
-            if onScreen then
-                local mousePos = UIS:GetMouseLocation()
-                -- Dahan-dahang "hihilain" ang camera angle patungo sa target
-                local deltaX = (targetPos.X - mousePos.X) * Smoothness
-                local deltaY = (targetPos.Y - mousePos.Y) * Smoothness
-                
-                -- Ina-apply ang movement sa mouse rotation imbes na sa camera coordinate
-                mousemoverel(deltaX, deltaY) 
-            end
+            -- Pinapanatili ang camera sa character pero itatapat sa target
+            local targetCFrame = CFrame.new(Camera.CFrame.Position, t.Position)
+            Camera.CFrame = Camera.CFrame:Lerp(targetCFrame, Smoothness)
         end
     end
 end)
