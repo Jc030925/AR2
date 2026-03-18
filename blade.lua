@@ -1,4 +1,4 @@
--- [[ AR2: STICKY AUTO AIM + FIXED CAMERA FOLLOW ]] -- 
+-- [[ AR2: LOCK-ON AIMBOT + CAMERA FOLLOW FIX ]] --
 local Players = game:GetService("Players")
 local LP = Players.LocalPlayer
 local RS = game:GetService("RunService")
@@ -10,18 +10,18 @@ _G.Aimbot = false
 _G.ESP = false
 local AimPart = "Head"
 
--- 2. UI MENU
-local ScreenGui = LP.PlayerGui:FindFirstChild("AR2_FinalUI")
+-- 2. UI MENU (External Design)
+local ScreenGui = LP.PlayerGui:FindFirstChild("AR2_FinalFix")
 if ScreenGui then ScreenGui:Destroy() end
 
 ScreenGui = Instance.new("ScreenGui", LP.PlayerGui)
-ScreenGui.Name = "AR2_FinalUI"
+ScreenGui.Name = "AR2_FinalFix"
 ScreenGui.ResetOnSpawn = false
 
 local MainFrame = Instance.new("Frame", ScreenGui)
 MainFrame.Size = UDim2.new(0, 160, 0, 100)
 MainFrame.Position = UDim2.new(0.02, 0, 0.4, 0)
-MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+MainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
 MainFrame.Active = true
 MainFrame.Draggable = true 
 
@@ -32,20 +32,21 @@ local function createBtn(text, pos, callback)
     btn.Text = text .. ": OFF"
     btn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
     btn.TextColor3 = Color3.new(1, 1, 1)
+    btn.Font = Enum.Font.SourceSansBold
     
     local state = false
     btn.MouseButton1Click:Connect(function()
         state = not state
         btn.Text = text .. (state and ": ON" or ": OFF")
-        btn.BackgroundColor3 = state and Color3.fromRGB(0, 180, 0) or Color3.fromRGB(30, 30, 30)
+        btn.BackgroundColor3 = state and Color3.fromRGB(0, 200, 100) or Color3.fromRGB(30, 30, 30)
         callback(state)
     end)
 end
 
 createBtn("AUTO AIM", 35, function(s) _G.Aimbot = s end)
-createBtn("ESP", 68, function(s) _G.ESP = s end)
+createBtn("PLAYER ESP", 68, function(s) _G.ESP = s end)
 
--- 3. UPDATED LOGIC (HINDI NA STUCK ANG CAMERA)
+-- 3. THE FIX: ANTI-STUCK CAMERA LOGIC
 local function getClosest()
     local target, dist = nil, math.huge
     for _, p in pairs(Players:GetPlayers()) do
@@ -61,31 +62,26 @@ local function getClosest()
 end
 
 RS.RenderStepped:Connect(function()
-    if _G.Aimbot and UIS:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then
-        local t = getClosest()
-        if t and LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then
-            -- Pinipilit ang camera na tumingin sa target habang naka-attach sa player
-            local lookAtPos = t.Position
-            local camPos = Camera.CFrame.Position
-            
-            -- Ito ang sekreto: CFrame.lookAt na hindi binabago ang distansya ng camera
-            Camera.CFrame = CFrame.lookAt(camPos, lookAtPos)
-        end
-    else
-        -- Binabalik ang control sa Roblox para hindi ma-stuck ang camera
-        Camera.CameraType = Enum.CameraType.Custom
-    end
-    
-    -- CLEAN ESP
+    -- ESP UPDATE
     if _G.ESP then
         for _, p in pairs(Players:GetPlayers()) do
             if p ~= LP and p.Character then
-                local hl = p.Character:FindFirstChild("ESP_Highlight") or Instance.new("Highlight", p.Character)
-                hl.Name = "ESP_Highlight"
+                local hl = p.Character:FindFirstChild("Fix_HL") or Instance.new("Highlight", p.Character)
+                hl.Name = "Fix_HL"
                 hl.Enabled = true
                 hl.FillColor = Color3.fromRGB(255, 0, 0)
                 hl.FillTransparency = 0.5
             end
+        end
+    end
+
+    -- AUTO AIM (RIGHT CLICK)
+    if _G.Aimbot and UIS:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then
+        local t = getClosest()
+        if t then
+            -- FORCE CAMERA TO FOLLOW CHARACTER WHILE LOOKING AT TARGET
+            Camera.CameraType = Enum.CameraType.Custom -- Pinipilit na hindi mag-Scriptable mode
+            Camera.CFrame = CFrame.lookAt(Camera.CFrame.Position, t.Position)
         end
     end
 end)
