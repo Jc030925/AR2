@@ -10,7 +10,7 @@ _G.Aimbot = false
 _G.ESP = false
 local RANGE = 500 
 local AimPart = "Head"
-local Sensitivity = 0.35 -- Taasan mo ito (e.g. 0.8) kung gusto mo ng mas mabilis na tutok
+local Sensitivity = 0.50 -- Taasan mo ito (e.g. 0.8) kung gusto mo ng mas mabilis na tutok
 
 -- 2. UI MENU
 local ScreenGui = LP.PlayerGui:FindFirstChild("AR2_MouseUI")
