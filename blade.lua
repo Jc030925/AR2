@@ -1,4 +1,4 @@
--- [[ AR2: ANCHORED CAMERA AIM + RANGE ESP ]] --
+-- [[ AR2: SMOOTH LERP AIM + ATTACHED CAMERA ]] --
 local Players = game:GetService("Players")
 local LP = Players.LocalPlayer
 local RS = game:GetService("RunService")
@@ -8,15 +8,16 @@ local Camera = workspace.CurrentCamera
 -- 1. SETTINGS
 _G.Aimbot = false
 _G.ESP = false
-local RANGE = 500 -- 500 studs limit para iwas lag
+local RANGE = 500 -- Limit para iwas lag
 local AimPart = "Head"
+local Smoothness = 0.15 -- Babaan mo ito (e.g. 0.05) para mas "legit" tignan
 
 -- 2. UI MENU
-local ScreenGui = LP.PlayerGui:FindFirstChild("AR2_AnchorUI")
+local ScreenGui = LP.PlayerGui:FindFirstChild("AR2_SmoothUI")
 if ScreenGui then ScreenGui:Destroy() end
 
 ScreenGui = Instance.new("ScreenGui", LP.PlayerGui)
-ScreenGui.Name = "AR2_AnchorUI"
+ScreenGui.Name = "AR2_SmoothUI"
 ScreenGui.ResetOnSpawn = false
 
 local MainFrame = Instance.new("Frame", ScreenGui)
@@ -43,10 +44,10 @@ local function createBtn(text, pos, callback)
     end)
 end
 
-createBtn("AUTO AIM", 35, function(s) _G.Aimbot = s end)
-createBtn("ESP", 68, function(s) _G.ESP = s end)
+createBtn("SMOOTH AIM", 35, function(s) _G.Aimbot = s end)
+createBtn("RANGE ESP", 68, function(s) _G.ESP = s end)
 
--- 3. LOGIC (FIXED CAMERA ANCHOR)
+-- 3. LOGIC (SMOOTH LERP - HINDI MAIIWAN ANG CAMERA)
 local function getClosest()
     local target, dist = nil, math.huge
     if not LP.Character or not LP.Character:FindFirstChild("HumanoidRootPart") then return end
@@ -68,30 +69,28 @@ end
 
 RS.RenderStepped:Connect(function()
     if not LP.Character or not LP.Character:FindFirstChild("HumanoidRootPart") then return end
-    local Root = LP.Character.HumanoidRootPart
-
-    -- ESP UPDATE (MALAPIT LANG)
+    
+    -- ESP UPDATE
     if _G.ESP then
         for _, p in pairs(Players:GetPlayers()) do
             if p ~= LP and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
-                local d = (Root.Position - p.Character.HumanoidRootPart.Position).Magnitude
-                local hl = p.Character:FindFirstChild("Highlight") or Instance.new("Highlight", p.Character)
+                local hl = p.Character:FindFirstChild("Smooth_HL") or Instance.new("Highlight", p.Character)
+                hl.Name = "Smooth_HL"
+                local d = (LP.Character.HumanoidRootPart.Position - p.Character.HumanoidRootPart.Position).Magnitude
                 hl.Enabled = (d <= RANGE)
                 hl.FillColor = Color3.fromRGB(255, 0, 0)
             end
         end
     end
 
-    -- FIXED AUTO AIM (Right Click)
+    -- SMOOTH AIM (Right Click)
     if _G.Aimbot and UIS:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then
         local t = getClosest()
         if t then
-            -- ITO ANG FIX: Kinukuha ang distansya ng camera mo sa character (Offset)
-            local offset = Camera.CFrame.Position - Root.Position
-            
-            -- Ina-apply ang lookAt pero pinapanatili ang offset para sumunod ang camera
-            Camera.Focus = Root.CFrame
-            Camera.CFrame = CFrame.lookAt(Root.Position + offset, t.Position)
+            -- ITO ANG FIX: Gagamit tayo ng Lerp para hindi mag-snap
+            -- Sa halip na palitan ang CFrame, "idudulas" lang natin yung camera
+            local targetCFrame = CFrame.new(Camera.CFrame.Position, t.Position)
+            Camera.CFrame = Camera.CFrame:Lerp(targetCFrame, Smoothness)
         end
     end
 end)
