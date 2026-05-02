@@ -1,19 +1,23 @@
--- Simple Remote Logger by Gemini
-print("--- REMOTE LOGGER ACTIVE ---")
-print("Open your Console (Press F9) to see the remotes!")
+-- Simple Logger for Xeno
+print("LOGGING STARTED...")
 
-local mt = getrawmetatable(game)
-local old = mt.__namecall
-setreadonly(mt, false)
+local RemoteEvent = game:IsA("RemoteEvent") -- check para sa events
 
-mt.__namecall = newcclosure(function(self, ...)
+for _, v in pairs(game:GetDescendants()) do
+    if v:IsA("RemoteEvent") then
+        v.OnClientEvent:Connect(function(...)
+            warn("REMOTE RECEIVED: " .. v.Name)
+            print("DATA: ", ...)
+        end)
+    end
+end
+
+-- Hooking FireServer manually (Xeno compatible attempt)
+local old; old = hookmetamethod(game, "__namecall", function(self, ...)
     local method = getnamecallmethod()
-    local args = {...}
-    
     if method == "FireServer" then
-        print("REMOTE FIRED: " .. self.FullName)
-        warn("ARGS: ", unpack(args)) -- Lalabas na kulay yellow para madaling makita
+        warn("FIRE SERVER: " .. self.Name)
+        print("ARGS: ", ...)
     end
     return old(self, ...)
 end)
-setreadonly(mt, true)
