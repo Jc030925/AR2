@@ -1,46 +1,62 @@
--- [[ GEMINI BEE BYPASS UI ]] --
-local Library = {}
-local sg = Instance.new("ScreenGui", game.CoreGui)
-sg.Name = "BeeGodUI"
+-- [[ GEMINI BEE BYPASS + TP AUTO FARM ]] --
+local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/xHeptc/Kavo-UI-Library/main/source.lua"))()
+local Window = Library.CreateLib("Bee God - Instant Bypass", "Midnight")
 
-local Main = Instance.new("Frame", sg)
-Main.Size = UDim2.new(0, 220, 0, 200)
-Main.Position = UDim2.new(0.5, -110, 0.5, -100)
-Main.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-Main.Active = true
-Main.Draggable = true
+-- Variables
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local CatchService = ReplicatedStorage.Packages._Index["sleitnick_knit@1.7.0"].knit.Services.CatchService --
+local Players = game:GetService("Players")
+local LP = Players.LocalPlayer
 
-local Title = Instance.new("TextLabel", Main)
-Title.Size = UDim2.new(1, 0, 0, 40)
-Title.Text = "BEE INSTANT BYPASS"
-Title.TextColor3 = Color3.new(1, 0.8, 0)
-Title.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+_G.AutoFarm = false
 
-_G.AutoBypass = false
+-- [[ FUNCTIONS ]] --
+local function bypassMinigame()
+    -- Ito ang force-complete sa sliding game
+    pcall(function()
+        CatchService.RF.NotifyMinigameCompleted:InvokeServer()
+    end)
+end
 
-local btn = Instance.new("TextButton", Main)
-btn.Size = UDim2.new(0.9, 0, 0, 50)
-btn.Position = UDim2.new(0.05, 0, 0.3, 0)
-btn.Text = "AUTO BYPASS: OFF"
-btn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
-btn.TextColor3 = Color3.new(1, 1, 1)
+local function startFarm()
+    spawn(function()
+        while _G.AutoFarm do
+            task.wait(0.5)
+            -- Hanapin ang lahat ng Bees sa Workspace (Palitan ang "Bee" kung iba name sa Dex)
+            for _, bee in pairs(game.Workspace:GetChildren()) do
+                if _G.AutoFarm == false then break end
+                
+                -- Check kung Bee talaga (Dapat may PrimaryPart o Part)
+                if bee:FindFirstChild("HumanoidRootPart") or bee.Name:find("Bee") then
+                    -- 1. Teleport sa Bee
+                    LP.Character.HumanoidRootPart.CFrame = bee:GetModelCFrame() or bee.CFrame
+                    task.wait(0.2)
+                    
+                    -- 2. Dito ilalagay yung Remote para i-trigger ang huli
+                    -- (Dahil Knit ito, auto-trigger na madalas basta malapit ka)
+                    
+                    -- 3. Instant Bypass ang Sliding Game
+                    bypassMinigame()
+                    warn("Bypassed minigame for: " .. bee.Name)
+                end
+            end
+        end
+    end)
+end
 
-btn.MouseButton1Click:Connect(function()
-    _G.AutoBypass = not _G.AutoBypass
-    btn.Text = _G.AutoBypass and "AUTO BYPASS: ON" or "AUTO BYPASS: OFF"
-    btn.BackgroundColor3 = _G.AutoBypass and Color3.fromRGB(0, 150, 0) or Color3.fromRGB(60, 60, 60)
-end)
+-- [[ UI TABS ]] --
+local Main = Window:NewTab("Main Farm")
+local Section = Main:NewSection("Auto Bee Catch")
 
--- [[ THE BYPASS LOGIC ]] --
--- Nakikinig tayo sa "BeeRollResult" para i-force trigger ang catch
-game:GetService("ReplicatedStorage").DescendantAdded:Connect(function(remote)
-    if _G.AutoBypass and remote:IsA("RemoteEvent") and remote.Name == "BeeRollResult" then
-        -- Kapag nakita ng script na may "BeeRoll" na nagaganap
-        -- Susubukan nating i-fire ang lahat ng posibleng catch remotes
-        local remotes = game:GetService("ReplicatedStorage")
-        -- Palitan ang names sa ibaba kung may nakita kang bago sa F9
-        pcall(function() remotes.Remotes.CatchBee:FireServer(true) end)
-        pcall(function() remotes.Events.ClaimBee:FireServer() end)
-        warn("Bypass Attempted on: " .. remote.Name)
+Section:NewToggle("Auto TP + Instant Catch", "Teleports to bees and skips minigame", function(state)
+    _G.AutoFarm = state
+    if state then
+        startFarm()
     end
 end)
+
+Section:NewButton("Manual Instant Bypass", "Force skip current sliding game", function()
+    bypassMinigame()
+end)
+
+Library:Notify("Script Loaded! Ready to catch.")
