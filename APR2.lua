@@ -1,18 +1,16 @@
--- [[ GEMINI BEE BYPASS + TP AUTO FARM ]] --
 local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/xHeptc/Kavo-UI-Library/main/source.lua"))()
-local Window = Library.CreateLib("Bee God - Instant Bypass", "Midnight")
+local Window = Library.CreateLib("Bee God v2 - Instant Bypass", "Midnight")
 
--- Variables
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local CatchService = ReplicatedStorage.Packages._Index["sleitnick_knit@1.7.0"].knit.Services.CatchService --
-local Players = game:GetService("Players")
-local LP = Players.LocalPlayer
+-- Remote paths base sa Dex screenshots mo
+local KnitServices = ReplicatedStorage.Packages._Index["sleitnick_knit@1.7.0"].knit.Services
+local CatchService = KnitServices.CatchService
+local InteractionService = KnitServices.InteractionService -- Gagamitin para sa click
 
 _G.AutoFarm = false
 
--- [[ FUNCTIONS ]] --
-local function bypassMinigame()
-    -- Ito ang force-complete sa sliding game
+local function instantBypass()
+    -- Ito ang force-complete sa sliding game na nakita natin sa image_d09a3f.png
     pcall(function()
         CatchService.RF.NotifyMinigameCompleted:InvokeServer()
     end)
@@ -21,42 +19,43 @@ end
 local function startFarm()
     spawn(function()
         while _G.AutoFarm do
-            task.wait(0.5)
-            -- Hanapin ang lahat ng Bees sa Workspace (Palitan ang "Bee" kung iba name sa Dex)
+            task.wait(0.3)
             for _, bee in pairs(game.Workspace:GetChildren()) do
-                if _G.AutoFarm == false then break end
+                if not _G.AutoFarm then break end
                 
-                -- Check kung Bee talaga (Dapat may PrimaryPart o Part)
-                if bee:FindFirstChild("HumanoidRootPart") or bee.Name:find("Bee") then
-                    -- 1. Teleport sa Bee
-                    LP.Character.HumanoidRootPart.CFrame = bee:GetModelCFrame() or bee.CFrame
-                    task.wait(0.2)
+                -- Check kung Bee (Model or Part)
+                if bee:IsA("Model") and (bee.Name:find("Bee") or bee:FindFirstChild("HumanoidRootPart")) then
+                    local targetPos = bee:GetModelCFrame()
                     
-                    -- 2. Dito ilalagay yung Remote para i-trigger ang huli
-                    -- (Dahil Knit ito, auto-trigger na madalas basta malapit ka)
+                    -- 1. Teleport sa harap ng Bee
+                    game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = targetPos * CFrame.new(0, 0, 3)
+                    task.wait(0.1)
                     
-                    -- 3. Instant Bypass ang Sliding Game
-                    bypassMinigame()
-                    warn("Bypassed minigame for: " .. bee.Name)
+                    -- 2. Auto-Click/Interact (Para lumabas yung "Slide to Catch")
+                    pcall(function()
+                        InteractionService.RF.Interact:InvokeServer(bee)
+                    end)
+                    
+                    -- 3. Instant Bypass (Para mawala agad yung bar sa screenshot mo)
+                    task.wait(0.1)
+                    instantBypass()
+                    
+                    warn("Caught and Bypassed: " .. bee.Name)
+                    task.wait(0.5) -- Konting delay para hindi mag-lag
                 end
             end
         end
     end)
 end
 
--- [[ UI TABS ]] --
 local Main = Window:NewTab("Main Farm")
-local Section = Main:NewSection("Auto Bee Catch")
+local Section = Main:NewSection("Bee Catching")
 
-Section:NewToggle("Auto TP + Instant Catch", "Teleports to bees and skips minigame", function(state)
+Section:NewToggle("Auto TP + Click + Bypass", "Full automation", function(state)
     _G.AutoFarm = state
-    if state then
-        startFarm()
-    end
+    if state then startFarm() end
 end)
 
-Section:NewButton("Manual Instant Bypass", "Force skip current sliding game", function()
-    bypassMinigame()
+Section:NewButton("Manual Bypass (Use when bar is visible)", "Force skip current bar", function()
+    instantBypass()
 end)
-
-Library:Notify("Script Loaded! Ready to catch.")
